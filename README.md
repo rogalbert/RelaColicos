@@ -1,2 +1,0 @@
-# RelaColicos
-Networked Control project
