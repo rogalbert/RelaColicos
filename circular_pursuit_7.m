@@ -110,7 +110,7 @@ dx = zeros(2, N+4); %14 nodes in total=2 virtual nodes each team
 
 %% Grab tools for converting to single-integrator dynamics and ensuring safety 
 
-si_barrier_cert = create_si_barrier_certificate('SafetyRadius', 1.5*r.robot_diameter);
+si_barrier_certificate = create_si_barrier_certificate('SafetyRadius', 1.5*r.robot_diameter);
 si_to_uni_dyn = create_si_to_uni_mapping2('LinearVelocityGain', linearVelocityGain, ... 
     'AngularVelocityLimit', angularVelocityGain);
 
