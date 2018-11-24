@@ -10,6 +10,7 @@ initProject;
 N = 6;
 r = Robotarium('NumberOfRobots', N, 'ShowFigure', true);
 
+
 %% Set up constants for experiment
 
 %Gains for the transformation from single-integrator to unicycle dynamics
@@ -19,7 +20,7 @@ transformation_gain = 0.06;
 
 % Select the number of iterations for the experiment.  This value is
 % arbitrary
-iterations = 3000;
+iterations = 2000;
 
 % Communication topology for the desired formation.  We need 2 * N - 3 = 9
 % edges to ensure that the formation is rigid.
@@ -44,10 +45,19 @@ weights = [ 0 d 0 d 0 ddiag; ...
             d 0 ddiag 0 d 0; ... 
             0 d 0 d 0 d; ... 
             ddiag 0 d 0 d 0];
-    
-% Initialize velocity vector for agents.  Each agent expects a 2 x 1
+%% Set enviroment
+agenPlot = plot(0,0,'>','markersize',10,'MarkerFaceColor',[0.12,0.49,0.65],'MarkerEdgeColor','none');
+
+x = r.get_poses();
+xi = uni_to_si_states(x);
+agen = plot(x(1,:),x(2,:),'o','markersize',5,'MarkerFaceColor',[0.12,0.49,0.65],'MarkerEdgeColor','none');
+r.set_velocities(1:N, zeros(2,N));
+r.step();
+%% Initialize velocity vector for agents.  Each agent expects a 2 x 1
 % velocity vector containing the linear and angular velocity, respectively.
+
 dxi = zeros(2, N);
+xc = zeros(2,iterations);
 
 %% Grab tools for converting to single-integrator dynamics and ensuring safety 
 
@@ -65,6 +75,12 @@ for t = 0:iterations
     
     % Convert to SI states
     xi = uni_to_si_states(x);
+    
+    xc(:,t+1) = (1/N*xi*ones(N,1));
+    
+    set(agenPlot,'xdata',xc(1,t+1),'ydata',xc(2,t+1))
+    set(agen,'xdata',x(1,:),'ydata',x(2,:))
+    drawnow
     
     %% Algorithm
     
