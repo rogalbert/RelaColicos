@@ -1,6 +1,6 @@
-clear all, close all, clc
+%clear all, close all, clc
 %% Init Project
-initProject;
+%initProject;
 %% Setup Robotarium object
 
 N=5;                        % Number of agents per team                          
@@ -25,7 +25,7 @@ transformation_gain = 0.06;
 [si_to_uni_dyn, uni_to_si_states] = create_si_to_uni_mapping('ProjectionDistance', transformation_gain);
 si_barrier_cert = create_si_barrier_certificate('SafetyRadius', 1.5*rb.robot_diameter);
 
-max_iter = 1000; 
+max_iter = 2000; 
 
 % Initialize robots
 xuni = rb.get_poses();                                    % States of real unicycle robots
@@ -143,7 +143,7 @@ while (game)
             if min > 10 *rb.robot_diameter
                 stateH = 1;
 %                 t1 = 0;
-            elseif t1 >= max_iter
+            elseif t1 >= 2*max_iter
                 game = 0;
             end
             
@@ -173,9 +173,7 @@ while (game)
         case 1 % CyclicPursuit
             
         case 2 % exploration
-            dx2(:,N) = 0.05*(x2(:,N)-center2)/norm(x2(:,N)-center2);
-            xen = enemies (x2(:,N), x, senseRatio);
-            dx2(:,N) = explore(dx2(:,N), x2(:,N),xen);
+            dx2(:,N) = 0.1*(dx2(:,N)-x2(:,N)+center);
     end
     
     %% Avoid errors
@@ -222,47 +220,5 @@ maxVal = max(max(d));
 minVal = min(min(d));
 avgVal = mean(mean(d));
 
-
-end
-
-function [set] = enemies (agent,x, senseRatio)
-set=[];
-N = size(x, 2);
-for j = 1:N
-    if norm(agent - x(:,j)) < senseRatio
-        set = [set x(:,j)];
-    end
-end
-end
-
-function [dx] = explore (dxi,agent,x)
-
-N = size(x,2);
-safety_radius = 1;
-gamma = 100;
-opts = optimoptions(@quadprog,'Display','off');
-if (N <= 0) 
-   dx = dxi;
-   return 
-end
-num_constraints = N;
-A = zeros(num_constraints, 2);
-b = zeros(num_constraints, 1);
-count = 1;
-for j = 1:N
-    h = norm(agent-x(1:2,j))^2 - safety_radius^2;
-    A(count, :) =  2*(agent-x(:,j))';
-    b(count) = gamma*h^3;
-    count = count + 1;
-end
-
-%Solve QP program generated earlier
-H = 2*eye(2);
-f = 2*dxi;
-
-vnew = quadprog(sparse(H), double(f), A, b, [],[], [], [], [], opts);
-
-%Set robot velocities to new velocities
-dx = reshape(vnew, 2, 1);
 
 end

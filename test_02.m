@@ -1,6 +1,3 @@
-clear all, close all, clc
-%% Init Project
-initProject;
 %% Setup Robotarium object
 
 N=5;                        % Number of agents per team                          
@@ -25,7 +22,7 @@ transformation_gain = 0.06;
 [si_to_uni_dyn, uni_to_si_states] = create_si_to_uni_mapping('ProjectionDistance', transformation_gain);
 si_barrier_cert = create_si_barrier_certificate('SafetyRadius', 1.5*rb.robot_diameter);
 
-max_iter = 1000; 
+max_iter = 2000; 
 
 % Initialize robots
 xuni = rb.get_poses();                                    % States of real unicycle robots
@@ -143,7 +140,7 @@ while (game)
             if min > 10 *rb.robot_diameter
                 stateH = 1;
 %                 t1 = 0;
-            elseif t1 >= max_iter
+            elseif t1 >= 2*max_iter
                 game = 0;
             end
             
