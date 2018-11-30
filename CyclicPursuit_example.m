@@ -7,7 +7,7 @@ N=5;                        % Number of agents per team
 % Initialize robotarium
 rb = Robotarium('NumberOfRobots', N*2, 'ShowFigure', true);
 
-senseRatio = 8*rb.robot_diameter;
+senseRatio = 5*rb.robot_diameter;
 
 videoFLag = 0;
 % Initialize video
@@ -23,7 +23,7 @@ end
 formationControlGain = 8;
 transformation_gain = 0.06;
 [si_to_uni_dyn, uni_to_si_states] = create_si_to_uni_mapping('ProjectionDistance', transformation_gain);
-si_barrier_cert = create_si_barrier_certificate('SafetyRadius', 1.5*rb.robot_diameter);
+si_barrier_cert = create_si_barrier_certificate('SafetyRadius', 1.4*rb.robot_diameter);
 
 max_iter = 1000; 
 
@@ -31,7 +31,8 @@ max_iter = 1000;
 xuni = rb.get_poses();                                    % States of real unicycle robots
 x = uni_to_si_states(xuni(:,1:N));                                            % x-y positions only
 x2 = uni_to_si_states(xuni(:,N+1:2*N));
-agen = plot(xuni(1,1:N),xuni(2,1:N),'o','markersize',5,'MarkerFaceColor',[0.12,0.49,0.65],'MarkerEdgeColor','none');
+agen = plot(xuni(1,1:N),xuni(2,1:N),'o','markersize',12,'MarkerFaceColor',[0.12,0.49,0.65],'MarkerEdgeColor','none');
+agen2 = plot(xuni(1,N+1:2*N),xuni(2,N+1:2*N),'o','markersize',12,'MarkerFaceColor',[0.65,0.49,0.12],'MarkerEdgeColor','none');
 rb.set_velocities(1:2*N, zeros(2,2*N));                       % Assign dummy zero velocity
 rb.step();                                                % Run robotarium step
 
@@ -65,6 +66,7 @@ weightsDef=[0 d d dd ldf ddh lds;
     ldf sdf ldf sdf 0 dfs dfsev;
     ddh ddh ddh ddh dfs 0 dfs+dfsev;
     lds sds lds sds dfsev dfs+dfsev 0];
+weightsDef = weightsDef*1.1;
 nullMatrix=zeros(7);
 weights=[weightsDef nullMatrix;
     nullMatrix weightsDef];
@@ -80,11 +82,11 @@ LC=[1 0 -1 0 0 0 0;
 
 % Target cycle definition 1
 center = [-0.9;0];
-radius = 1.1;
+radius = 1.5;
 interAgentDistance = radius*2*sin(pi/N);
-kp1 = 7;
-kp2 = 0.4;
-plot(center(1),center(2),'>','markersize',12)
+kp1 = 6;
+kp2 = 0.9;
+plot(center(1),center(2),'>','markersize',15,'MarkerFaceColor',[0,0,1])
 % th = 0 : 2*pi/20 : 2*pi-2*pi/20;
 % plot(radius.*cos(th)+center(1),radius.*sin(th)+center(2),'b')
 
@@ -92,9 +94,16 @@ plot(center(1),center(2),'>','markersize',12)
 center2 = [1.1;0];
 radius2 = 0.4;
 interAgentDistance2 = radius2*2*sin(pi/N);
-plot(center2(1),center2(2),'<','markersize',12)
+plot(center2(1),center2(2),'<','markersize',15,'MarkerFaceColor',[1,0,0])
 % th = 0 : 2*pi/20 : 2*pi-2*pi/20;
 % plot(radius2.*cos(th)+center2(1),radius2.*sin(th)+center2(2),'b')
+
+obs_center = [0;0.1];
+obs_r = 0.2;
+th = 0:pi/50:2*pi;
+xunit = obs_r * cos(th) + obs_center(1);
+yunit = obs_r * sin(th) + obs_center(2);
+plot(xunit, yunit,'MarkerFaceColor',[0, 204, 153]/255);
 
 %%
 stateH = 0;
@@ -112,6 +121,7 @@ while (game)
     x2 = uni_to_si_states(xuni(:,N+1:2*N));
     
     set(agen,'xdata',xuni(1,1:N),'ydata',xuni(2,1:N))
+    set(agen2,'xdata',xuni(1,N+1:2*N),'ydata',xuni(2,N+1:2*N))
     drawnow
     %%
     dx1 = zeros(2,N);
@@ -143,7 +153,7 @@ while (game)
             if min > 10 *rb.robot_diameter
                 stateH = 1;
 %                 t1 = 0;
-            elseif t1 >= max_iter
+            elseif t1 >= 2*max_iter
                 game = 0;
             end
             
@@ -173,9 +183,24 @@ while (game)
         case 1 % CyclicPursuit
             
         case 2 % exploration
-            dx2(:,N) = 0.05*(x2(:,N)-center2)/norm(x2(:,N)-center2);
+            dx2(:,N) = 0.04*(x2(:,N)-center2)/norm(x2(:,N)-center2);
             xen = enemies (x2(:,N), x, senseRatio);
-            dx2(:,N) = explore(dx2(:,N), x2(:,N),xen);
+%             dx2(:,N) = explore(dx2(:,N), x2(:,N),xen);
+            Nen = size (xen,2);
+            if norm(x2(:,N)-center) > senseRatio
+                if Nen > 1
+                    dx2(:,N) = 0;
+                end
+                for j = 1:Nen
+                    dx2(:, N) = dx2(:, N) + 0.3*(xen(1:2, j) - x2(1:2, N));
+                end
+            elseif norm(x2(:,N)-center) < 0.05
+                game = 0;
+                disp('Game Over')
+            else
+                dx2(:, N) =0.5*(center - x2(1:2, N));
+                
+            end
     end
     
     %% Avoid errors
@@ -188,6 +213,7 @@ while (game)
     dx(:, to_thresh) = threshold*dx(:, to_thresh)./norms(to_thresh);
     
     %% Transform the single-integrator dynamics to unicycle dynamics using a provided utility function
+    dx = BC_obstable(dx,xuni, obs_center, obs_r);
     dx = si_barrier_cert(dx, xuni);
     dxu = si_to_uni_dyn(dx, xuni);
     
@@ -265,4 +291,37 @@ vnew = quadprog(sparse(H), double(f), A, b, [],[], [], [], [], opts);
 %Set robot velocities to new velocities
 dx = reshape(vnew, 2, 1);
 
+end
+
+function [ dx ] = BC_obstable(dxi,x, obs_center, obs_r)
+    gamma = 100;
+    opts = optimoptions(@quadprog,'Display','off');
+    N = size(dxi, 2);
+
+    if(N < 2)
+       dx = dxi;
+       return 
+    end
+
+    x = x(1:2, :);
+    num_constraints = 1;
+    A = zeros(num_constraints, 2*N);
+    b = zeros(num_constraints, 1);
+    count = 1;
+    for i = 1 : N
+        h = norm(x(1:2,i)-obs_center)^2-(obs_r+0.05)^2;
+        A(count, (2*i-1):(2*i)) = -2*(x(:,i)-obs_center)';
+        b(count) = gamma*h^3;
+        count = count + 1;
+    end
+
+    %Solve QP program generated earlier
+    vhat = reshape(dxi,2*N,1);
+    H = 2*eye(2*N);
+    f = -2*vhat;
+
+    vnew = quadprog(sparse(H), double(f), A, b, [],[], [], [], [], opts);
+
+    %Set robot velocities to new velocities
+    dx = reshape(vnew, 2, N);
 end
